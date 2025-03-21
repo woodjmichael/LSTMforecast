@@ -1,0 +1,61 @@
+version: 1.7
+
+# any configs here can be overwriteen by code
+
+site: redcliff_healthcenter
+filename: data/redcliff_healthcenter_15min_180327-250102.csv
+index_col: Datetime CST
+data_col: Load kW
+persist_col: 
+#persist_col: Persist
+persist_calc_days: 7 # int or False (then need a persist_col above)
+#persist_calc_days: 
+remove_days: weekends # (empty), weekends, weekdays
+#remove_days: 
+resample: 15min
+test_split: 0.05
+emd: True
+#emd: False
+results_dir: ./results/
+clean_dir: False
+
+# model
+units_layers: [5,0]
+dropout: [0,0]
+n_in: 96
+n_out: 96
+batch_size: 256
+features: [Load]
+features_list_name: IMF
+#features_list_numbers: []
+features_list_numbers: [3,4]
+calendar_features: False
+
+# training
+epochs: 100
+patience: 20
+plots: #'hx'
+verbose: 1
+valid_split: 0.2
+loss: mse
+
+# testing
+forecast_freq: 1h # 1h or 1d
+test_plots: False
+test_output: False
+
+# search
+search: False # unused
+units1: [4,8,12,24,48,96,128,256] # units 1
+units2: [0,4,8,12,24,48,96,128,256] # units 2
+dropouts: [0, 0.1] #0,0.1] # dropout
+ns: [12,24,48,96,192,288,384,480] # n_in
+features_2D: [  ['Load'], # features
+                ['Load','Persist'], # features
+                ['Load','IMF2',],
+                ['Load','Persist','IMF2',],
+                ['Load','Persist','IMF1','IMF2','IMF3','IMF4','IMF5','IMF6','IMF7','IMF8','IMF9','IMF10','IMF11'],
+                ]
+
+# etc
+convert_to_json: False

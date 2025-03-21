@@ -1,16 +1,10 @@
-__version__ = 1.6
+__version__ = 1.7
+MICROGRID = False
 
-import os, sys, shutil
-
-import yaml
-
+import os, sys, shutil, json
 from typing import Generator
 from datetime import datetime
-
 from random import shuffle
-
-import matplotlib.pyplot as plt
-from matplotlib.ticker import PercentFormatter
 
 import numpy as np
 import pandas as pd
@@ -27,6 +21,11 @@ from tensorflow.keras.optimizers import RMSprop,Adam
 from tensorflow.keras.backend import square, mean
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TerminateOnNaN
 import emd
+
+if not MICROGRID:
+    import yaml
+    import matplotlib.pyplot as plt
+    from matplotlib.ticker import PercentFormatter
 
 print(tf.config.list_physical_devices('GPU'))
 
@@ -54,10 +53,28 @@ def read_yaml(config_file:str) -> dotdict:
     Returns:
         dotdict: _description_
     """
-    with open(config_file, 'r') as stream:
-        d=yaml.safe_load(stream)
+    if not MICROGRID:
+        with open(config_file, 'r') as stream:
+            d=yaml.safe_load(stream)
+    else:
+        config_file.replace('.yaml','.json')
+        with open(config_file, 'r') as stream:
+            d=json.loads(stream.read())
     cfg = dotdict(d)
+    if cfg.convert_to_json:
+        convert_yaml_to_json(config_file)
     return cfg
+
+def convert_yaml_to_json(yaml_file:str):
+    """ Convert yaml file to json file
+
+    Args:
+        yaml_file (str): path to yaml file
+    """
+    with open(yaml_file, 'r') as f:
+        d=yaml.safe_load(f)
+    with open(yaml_file.replace('.yaml','.json'), 'w') as f:
+        json.dump(d,f)
 
 def model_builder_kt(hp):
     """ In development
@@ -147,6 +164,7 @@ class RunTheJoules:
         self.model = None
         self.emd = cfg.emd
         self.df = self.get_dat()
+        self.df.to_csv('df_weekdays.csv')
         self.peak = self.df['Load'].max()
         self.test_split = cfg.test_split
         self.i_test_split = self.data_points_per_day*int((1-cfg.test_split)*(len(self.df)/self.data_points_per_day))
@@ -251,6 +269,8 @@ class RunTheJoules:
         
         if self.resample != False:
             df = df.resample(self.resample).mean()
+            
+        df = df.rename(columns = {self.data_col:'Load'})
         
         interval_min = int(df.index.to_series().diff().mode()[0].seconds/60)
         self.data_points_per_day = int(1440/interval_min)
@@ -302,6 +322,8 @@ class RunTheJoules:
         #df['Persist'] = df['Load'].shift(self.persist_lag)
     
         df = df.ffill().bfill()
+        
+        df.to_csv('data/redcliff_healthcenter_load-emd_15min_180327-250102.csv')
 
         return df
     
@@ -990,12 +1012,12 @@ class RunTheJoules:
        
 if __name__ == '__main__':
      
-    jpl = RunTheJoules('jpl_ev.yaml')
+    rtj = RunTheJoules('redcliff_healthcenter.yaml')
     
-    h = jpl.run_them_fast()
+    h = rtj.run_them_fast()
 
-    jpl.banana_clipper()
+    rtj.banana_clipper()
     
-    #jpl.random_search_warrant()
+    #rtj.random_search_warrant()
 
-    #jpl.analyze_hyperparam_search()
+    #rtj.analyze_hyperparam_search()
