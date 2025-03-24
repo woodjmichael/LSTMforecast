@@ -149,11 +149,11 @@ class RunTheJoules:
         # see yaml for explanations of each
         assert cfg.version == __version__
         self.config = cfg
-        self.site = cfg.config_file.split('.')[0]
+        self.site = config_file.split('.')[0]
         self.persist_calc_days = cfg.persist_calc_days
         self.data_points_per_day = None
         self.persist_lag = None
-        self.results_dir = cfg.results_dir + cfg.site + '/' + cfg.results_subdir + '/'
+        self.results_dir = cfg.results_dir + self.site + '/' + cfg.results_subdir + '/'
         self.clean_dir = cfg.clean_dir
         self.filename = cfg.filename
         self.index_col = cfg.index_col
