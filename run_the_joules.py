@@ -1,4 +1,4 @@
-__version__ = 1.7
+__version__ = 1.8
 MICROGRID = False
 
 import os, sys, shutil, json
@@ -145,26 +145,27 @@ class RunTheJoules:
     """
     def __init__(self,config_file):
         cfg = read_yaml(config_file)
-        #self.confg_filepath = config_file
+        
+        # see yaml for explanations of each
         assert cfg.version == __version__
         self.config = cfg
-        self.site = cfg.site
+        self.site = cfg.config_file.split('.')[0]
         self.persist_calc_days = cfg.persist_calc_days
         self.data_points_per_day = None
         self.persist_lag = None
-        self.results_dir = cfg.results_dir+cfg.site+'/'
+        self.results_dir = cfg.results_dir + cfg.site + '/' + cfg.results_subdir + '/'
         self.clean_dir = cfg.clean_dir
         self.filename = cfg.filename
         self.index_col = cfg.index_col
         self.data_col = cfg.data_col
         self.persist_col = cfg.persist_col
         self.resample = cfg.resample
-        self.remove_days=cfg.remove_days # 'weekdays', 'weekdays', or list of ints (0=mon, .., 6=sun)
+        self.remove_days = cfg.remove_days 
         self.calendar_features = cfg.calendar_features
         self.model = None
         self.emd = cfg.emd
+        self.emd_export = cfg.emd_export
         self.df = self.get_dat()
-        self.df.to_csv('df_weekdays.csv')
         self.peak = self.df['Load'].max()
         self.test_split = cfg.test_split
         self.i_test_split = self.data_points_per_day*int((1-cfg.test_split)*(len(self.df)/self.data_points_per_day))
@@ -186,7 +187,6 @@ class RunTheJoules:
         self.batch_size = cfg.batch_size
         self.forecast_freq = cfg.forecast_freq
         
-        self.search = cfg.search
         self.units1 = cfg.units1
         self.units2 = cfg.units2
         self.dropouts = cfg.dropouts
@@ -313,6 +313,8 @@ class RunTheJoules:
 
         if self.emd:
             df = self.emd_sift(df)
+            if self.emd_export:
+                df.to_csv('emd_export.csv')
                             
         if self.calendar_features:
             df['Day'] = df.index.dayofyear
@@ -322,8 +324,6 @@ class RunTheJoules:
         #df['Persist'] = df['Load'].shift(self.persist_lag)
     
         df = df.ffill().bfill()
-        
-        df.to_csv('data/redcliff_healthcenter_load-emd_15min_180327-250102.csv')
 
         return df
     
@@ -1011,13 +1011,13 @@ class RunTheJoules:
        
        
 if __name__ == '__main__':
-     
-    rtj = RunTheJoules('redcliff_healthcenter.yaml')
     
-    h = rtj.run_them_fast()
+    rtj = RunTheJoules(sys.argv[1]+'.yaml') # pass site name as sys arg
+    
+    #h = rtj.run_them_fast()
 
-    rtj.banana_clipper()
+    #rtj.banana_clipper()
     
-    #rtj.random_search_warrant()
+    rtj.random_search_warrant()
 
     #rtj.analyze_hyperparam_search()

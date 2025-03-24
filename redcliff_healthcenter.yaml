@@ -1,0 +1,60 @@
+version: 1.8
+
+# any configs here can be overwriteen by code
+
+# nmse of 1 day persist on valid data is 0.0128
+
+results_subdir: gridsearch v1.7 250324
+filename: data\redcliff_healthcenter_load_15min_180517-240130.csv
+index_col: Datetime CST
+data_col: Load kW
+persist_col: 
+#persist_col: Persist
+persist_calc_days: 1 # int or False (then need a persist_col above)
+remove_days: [5,6] # (empty), list (0=monday), 'weekends', or 'weekdays'
+resample: 15min
+test_split: 0.05
+emd: True
+emd_export: False # send to csv
+results_dir: ./results/
+clean_dir: False
+
+# model
+units_layers: [256,256]
+dropout: [0,0]
+n_in: 96
+n_out: 96
+batch_size: 256
+features: [Load, Persist]
+features_list_name: IMF
+features_list_numbers: [2,3]
+calendar_features: False
+
+# training
+epochs: 100
+patience: 20
+plots: #'hx'
+verbose: 1
+valid_split: 0.05
+loss: mse
+
+# testing
+forecast_freq: 1h # 1h or 1d
+test_plots: False
+test_output: False
+
+# search
+units1: [24,48,96,128,256] # units 1
+units2: [24,48,96,128,256] # units 2
+dropouts: [0, 0.1] #0,0.1] # dropout
+ns: [24,48,96,192,288] # n_in
+features_2D: [  ['Load'], # features
+                ['Load','Persist'], 
+                ['Load','IMF2','IMF3'],
+                ['Load','Persist','IMF2','IMF3'],
+                #['Load','IMF1','IMF2','IMF3','IMF4','IMF5','IMF6','IMF7','IMF8','IMF9','IMF10'],
+                #['Load','Persist1Workday','IMF1','IMF2','IMF3','IMF4','IMF5','IMF6','IMF7','IMF8','IMF9','IMF10'],
+                ]
+
+# etc
+convert_to_json: False          

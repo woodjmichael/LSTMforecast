@@ -1,4 +1,4 @@
-version: 1.6
+version: 1.7
 
 # any configs here can be overwriteen by code
 
@@ -16,7 +16,7 @@ persist_col:
 #persist_col: Persist
 persist_calc_days: 7 # int or False (then need a persist_col above)
 #persist_calc_days: 
-remove_days: weekends # (empty), weekends, weekdays
+remove_days: [4,5,6] # (empty), weekends, weekdays, or list of ints
 #remove_days: 
 resample: 15min
 test_split: 0.05
@@ -26,8 +26,8 @@ results_dir: ./results/
 clean_dir: False
 
 # model
-units_layers: [12,96]
-dropout: [0.1,0.1]
+units_layers: [256,256]
+dropout: [0,0]
 n_in: 96
 n_out: 96
 batch_size: 256
