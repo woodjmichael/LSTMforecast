@@ -1,4 +1,4 @@
-version: 1.7
+version: 1.8
 
 # any configs here can be overwriteen by code
 
@@ -7,7 +7,7 @@ version: 1.7
 # pers7D nMAEall=6.0%, nMSEall=0.0229, nMSEtrn=0.0228, nMSEvld=0.0247, nMSEtst=0.0200
 # pers1WD nMAEall=5.1%, nMSEall=0.0159, nMSEtrn=0.0158, nMSEvld=0.0173, nMSEtst=0.0136
 
-site: jpl_ev_TEST
+results_subdir: hpsearch_v1-8_250326
 filename: data/all_JPL_v5.csv
 #filename: data/all_JPL_v5_weekdays_IMFs.csv
 index_col: Datetime
@@ -16,11 +16,12 @@ persist_col:
 #persist_col: Persist
 persist_calc_days: 7 # int or False (then need a persist_col above)
 #persist_calc_days: 
-remove_days: [4,5,6] # (empty), weekends, weekdays, or list of ints
+remove_days: [5,6] # (empty), weekends, weekdays, or list of ints
 #remove_days: 
 resample: 15min
 test_split: 0.05
 emd: True
+emd_export: False
 #emd: False
 results_dir: ./results/
 clean_dir: False
@@ -29,7 +30,7 @@ clean_dir: False
 units_layers: [256,256]
 dropout: [0,0]
 n_in: 96
-n_out: 96
+n_out: 144
 batch_size: 256
 features: [Load, Persist1Workday]
 features_list_name: IMF
@@ -39,7 +40,7 @@ calendar_features: False
 
 # training
 epochs: 100
-patience: 10
+patience: 20
 plots: #'hx'
 verbose: 1
 valid_split: 0.2
@@ -50,8 +51,7 @@ forecast_freq: 1h # 1h or 1d
 test_plots: False
 test_output: False
 
-# search
-search: False
+# hyperparameter search
 units1: [4,8,12,24,48,96,128,256] # units 1
 units2: [0,4,8,12,24,48,96,128,256] # units 2
 dropouts: [0, 0.1] #0,0.1] # dropout
