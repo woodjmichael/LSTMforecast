@@ -1,7 +1,8 @@
-__version__ = 1.8
+__version__ = 1.9
 MICROGRID = False
 
 import os, sys, shutil, json
+from math import nan
 from typing import Generator
 from datetime import datetime
 from random import shuffle
@@ -167,9 +168,11 @@ class RunTheJoules:
         self.emd_export = cfg.emd_export
         self.df = self.get_dat()
         self.peak = self.df['Load'].max()
+        self.cross_val = cfg.cross_val
         self.test_split = cfg.test_split
         self.i_test_split = self.data_points_per_day*int((1-cfg.test_split)*(len(self.df)/self.data_points_per_day))
         self.test_t0 = self.df.index[self.i_test_split]
+        self.test_end = None #self.df.index[-1]
         self.train = self.df[:self.i_test_split]
         self.valid_split = cfg.valid_split
         self.units_layers = cfg.units_layers
@@ -785,7 +788,7 @@ class RunTheJoules:
         return history
 
     
-    def banana_clipper(self,t0:str=None,test_output=None,test_plots=None,limit=None,):  
+    def banana_clipper(self,t0:str=None,test_output=None,test_plots=None,limit=None,tfinal=None):  
         """ Quickly test forecast on test data starting at t0
 
         Args:
@@ -813,6 +816,12 @@ class RunTheJoules:
         if t0 < self.test_t0:
             print(f'Bad idea to begin testing on training data, changing start of the test to {self.test_t0}')
             t0 = self.test_t0
+            
+        if t0 < self.df.index[self.n_in]:
+            t0 = self.df.index[self.n_in]
+            
+        if tfinal is None:
+            tfinal = self.df.index[-1]
 
 
         #print(self.features);print(self.df.columns)
@@ -833,7 +842,7 @@ class RunTheJoules:
         
         times = []
         skills_mae,maes_pers,maes_lstm = [],[],[]
-        skills_mape,mapes_pers,mapes_lstm = [],[],[]
+        #skills_mape,mapes_pers,mapes_lstm = [],[],[]
         mases = []
         
         all_forecasts = pd.DataFrame([])
@@ -860,7 +869,7 @@ class RunTheJoules:
             y_pers = df.loc[t:,'Persist'][:self.n_out].copy()
             
             mae_pers = (y_true-y_pers).abs().mean()
-            mape_pers = ((y_true - y_pers).abs() / y_true).mean()
+            #mape_pers = ((y_true - y_pers).abs() / y_true).mean()
             
             if mae_pers < 0.001:
                 if output:
@@ -878,10 +887,17 @@ class RunTheJoules:
                                    name='Pred')
                 
                 mae_lstm = (y_true - y_pred).abs().mean()
-                mape_lstm = ((y_true - y_pred).abs() / y_true).mean()
+                #mape_lstm = ((y_true - y_pred).abs() / y_true).mean()
 
-                skill_mae = 1 - mae_lstm / mae_pers
-                skill_mape = 1 - mape_lstm / mape_pers
+                if mae_pers == 0:
+                    skill_mae = nan
+                else:
+                    skill_mae = 1 - mae_lstm / mae_pers
+                
+                # if mape_pers == 0:
+                #     skill_mape = nan
+                # else:
+                #     skill_mape = 1 - mape_lstm / mape_pers
 
                 mase = (y_true - y_pred).abs().mean() / (y_true - y_pers).abs().mean()
                 
@@ -902,23 +918,37 @@ class RunTheJoules:
                 skills_mae.append(skill_mae)
                 maes_pers.append(mae_pers)
                 maes_lstm.append(mae_lstm)
-                skills_mape.append(skill_mape)
-                mapes_pers.append(mape_pers)
-                mapes_lstm.append(mape_lstm)
+                #skills_mape.append(skill_mape)
+                #mapes_pers.append(mape_pers)
+                #mapes_lstm.append(mape_lstm)
                 mases.append(mase)
+                
+                if t == tfinal:
+                    print('Final test timestep reached:',tfinal)
+                    break
 
-            
-        all_forecasts.to_csv(f'{self.results_dir}/all_forecasts.csv')
+        # if self.cross_val is None:
+        #     all_forecasts.to_csv(f'{self.results_dir}/all_forecasts.csv')
+        # else:
+        #     all_forecasts.to_csv(f'{self.results_dir}/all_forecasts_crossval_{self.i_crossval}.csv')
 
-        pd.DataFrame({'timestamp_update':times,
+        errors = pd.DataFrame({'timestamp_update':times,
                       'skill_mae':skills_mae,
                       'mae_pers':maes_pers,
                       'mae_lstm':maes_lstm,
-                      'skill_mape':skills_mape,
-                      'mape_pers':mapes_pers,
-                      'mape_lstm':mapes_lstm,
+                      #'skill_mape':skills_mape,
+                      #'mape_pers':mapes_pers,
+                      #'mape_lstm':mapes_lstm,
                       'mase':mases,}
-                      ).round(3).to_csv(f'{self.results_dir}/errors.csv')
+                      ).round(3)
+        
+        filename_allforecasts = f'{self.results_dir}/all_forecasts.csv'
+        filename_errors = f'{self.results_dir}/errors.csv'
+        if self.cross_val is None:
+            filename_allforecasts = filename_allforecasts.split('.csv')[0] + f'_crossval_{self.i_crossval}.csv'
+            filename_errors.split('.csv')[0] + f'_crossval_{self.i_crossval}.csv'
+        all_forecasts.to_csv(filename_allforecasts)
+        errors.to_csv(filename_errors)
                 
         skills = np.array(skills_mae)
         print('Percentage of forecasts with positive skill:',
@@ -1012,12 +1042,29 @@ class RunTheJoules:
        
 if __name__ == '__main__':
     
-    rtj = RunTheJoules(sys.argv[1]+'.yaml') # pass site name as sys arg
+    j = RunTheJoules('jpl_ev.yaml')#sys.argv[1]+'.yaml') # pass site name as sys arg    
     
-    #h = rtj.run_them_fast()
+    for i_crossval in range(j.cross_val)[:2]:
+        j.i_crossval = i_crossval
+        j.test_split = 1/j.cross_val * i_crossval
+        j.i_test_begin = j.data_points_per_day*int(j.test_split*(len(j.df)/j.data_points_per_day))
+        j.i_test_end = j.i_test_begin + j.data_points_per_day * int(1/j.cross_val * int(len(j.df) / j.data_points_per_day))
+        j.test = j.df.iloc[j.i_test_begin:j.i_test_end,:]
+        idx_train = [x for x in j.df.index if x not in j.test.index]
+        j.train = j.df.loc[idx_train]
+        
+        j.test_t0 = j.df.index[j.i_test_begin]
+        j.test_end = j.df.index[j.i_test_end]
+        
+        print('Cross validation:',i_crossval+1)
+        print('Test index:',j.i_test_begin,j.i_test_end)
+        print(j.train.index[0],j.train.index[-1],len(j.train))
+        print(j.test.index[0],j.test.index[-1],len(j.test))
+        
+        history = j.run_them_fast()
 
-    #rtj.banana_clipper()
+        j.banana_clipper(t0=j.test_t0,tfinal=j.test_end)
     
-    rtj.random_search_warrant()
+    #joules.random_search_warrant()
 
-    #rtj.analyze_hyperparam_search()
+    #joules.analyze_hyperparam_search()
