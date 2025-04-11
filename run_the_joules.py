@@ -1,4 +1,4 @@
-__version__ = 1.9
+__version__ = 1.10
 MICROGRID = False
 
 import os, sys, shutil, json
@@ -326,8 +326,6 @@ class RunTheJoules:
             df['Day'] = df.index.dayofyear
             df['Hour'] = df.index.hour
             df['Weekday'] = df.index.dayofweek
-        
-        #df['Persist'] = df['Load'].shift(self.persist_lag)
     
         df = df.ffill().bfill()
 
@@ -1044,34 +1042,38 @@ class RunTheJoules:
         results = results.sort_values(by=['mean_skill'],ascending=False)
         results.to_csv(self.results_dir+'results_summary.csv')
         print(results)
+        
+    def cross_validation(self):
+        for i_crossval in range(self.cross_val):
+            self.i_crossval = i_crossval
+            self.test_split = 1/self.cross_val * i_crossval
+            
+            self.i_test_begin = self.data_points_per_day*int(self.test_split*(len(self.df)/self.data_points_per_day))
+            self.i_test_end = self.i_test_begin + self.data_points_per_day * int(1/self.cross_val * int(len(self.df) / self.data_points_per_day))
+            
+            self.test = self.df.iloc[self.i_test_begin:self.i_test_end,:]
+            
+            idx_train = [x for x in self.df.index if x not in self.test.index]
+            self.train = self.df.loc[idx_train]
+            
+            self.test_t0 = self.df.index[self.i_test_begin]
+            self.test_end = self.df.index[self.i_test_end]
+            
+            print('Cross validation:',i_crossval+1)
+            print('Test index:',self.i_test_begin,self.i_test_end)
+            print(self.train.index[0],self.train.index[-1],len(self.train))
+            print(self.test.index[0],self.test.index[-1],len(self.test))
+            
+            history = self.run_them_fast()
+
+            self.banana_clipper(t0=self.test_t0,tfinal=self.test_end)        
        
        
 if __name__ == '__main__':
     
-    j = RunTheJoules('jpl_ev.yaml')#sys.argv[1]+'.yaml') # pass site name as sys arg    
+    j = RunTheJoules(sys.argv[1]+'.yaml') # pass site name as sys arg    
     
-    for i_crossval in range(j.cross_val):
-        #j.results_dir = j.results_dir +f'crossval_{i_crossval}/'
-        j.i_crossval = i_crossval
-        j.test_split = 1/j.cross_val * i_crossval
-        j.i_test_begin = j.data_points_per_day*int(j.test_split*(len(j.df)/j.data_points_per_day))
-        j.i_test_end = j.i_test_begin + j.data_points_per_day * int(1/j.cross_val * int(len(j.df) / j.data_points_per_day))
-        j.test = j.df.iloc[j.i_test_begin:j.i_test_end,:]
-        
-        idx_train = [x for x in j.df.index if x not in j.test.index]
-        j.train = j.df.loc[idx_train]
-        
-        j.test_t0 = j.df.index[j.i_test_begin]
-        j.test_end = j.df.index[j.i_test_end]
-        
-        print('Cross validation:',i_crossval+1)
-        print('Test index:',j.i_test_begin,j.i_test_end)
-        print(j.train.index[0],j.train.index[-1],len(j.train))
-        print(j.test.index[0],j.test.index[-1],len(j.test))
-        
-        history = j.run_them_fast()
-
-        j.banana_clipper(t0=j.test_t0,tfinal=j.test_end,limit=10)
+    j.cross_validation()
     
     #joules.random_search_warrant()
 

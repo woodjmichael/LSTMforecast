@@ -1,4 +1,4 @@
-version: 1.9
+version: 1.10
 
 # any configs here can be overwriteen by code
 
@@ -44,6 +44,7 @@ test_plots: False
 test_output: False
 
 # hyperparameter search
+# (if enabled)
 units1: [4,8,12,24,48,96,128,256] # units 1
 units2: [0,4,8,12,24,48,96,128,256] # units 2
 dropouts: [0, 0.1] #0,0.1] # dropout
