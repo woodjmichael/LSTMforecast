@@ -1,4 +1,4 @@
-__version__ = 1.10
+__version__ = 1.11
 MICROGRID = False
 
 import os, sys, shutil, json
@@ -824,15 +824,11 @@ class RunTheJoules:
         if tfinal is None:
             tfinal = self.df.index[-1]
 
-
-        #print(self.features);print(self.df.columns)
         
         if 'Persist' not in self.features:
             df = self.df[self.features + ['Persist']]
         else:
             df = self.df[self.features]
-            
-        #print(df.columns);sys.exit()
 
         y_scaler = load(open(self.results_dir + "y_scaler.pkl", 'rb')) 
         if self.loss == 'custom':
@@ -842,8 +838,7 @@ class RunTheJoules:
             model = tf.keras.models.load_model(self.results_dir+"lstm.keras")
         
         times = []
-        skills_mae,maes_pers,maes_lstm = [],[],[]
-        #skills_mape,mapes_pers,mapes_lstm = [],[],[]
+        skills_nmae,nmaes_pers,nmaes_lstm = [],[],[]
         mases = []
         
         all_forecasts = pd.DataFrame([])
@@ -869,10 +864,9 @@ class RunTheJoules:
             y_true = df.loc[t:,'Load'][:self.n_out].copy()
             y_pers = df.loc[t:,'Persist'][:self.n_out].copy()
             
-            mae_pers = (y_true-y_pers).abs().mean()
-            #mape_pers = ((y_true - y_pers).abs() / y_true).mean()
+            nmae_pers = (y_true/self.peak-y_pers/self.peak).abs().mean()
             
-            if mae_pers < 0.001:
+            if nmae_pers < 0.001:
                 if output:
                     print ('\nPersistence == perfect')
             elif t != y_true.index[0]:
@@ -887,25 +881,19 @@ class RunTheJoules:
                                    index=y_true.index,
                                    name='Pred')
                 
-                mae_lstm = (y_true - y_pred).abs().mean()
-                #mape_lstm = ((y_true - y_pred).abs() / y_true).mean()
+                nmae_lstm = (y_true/self.peak - y_pred/self.peak).abs().mean()
 
-                if mae_pers == 0:
-                    skill_mae = nan
+                if nmae_pers < 0.001:
+                    skill_nmae = nan
                 else:
-                    skill_mae = 1 - mae_lstm / mae_pers
-                
-                # if mape_pers == 0:
-                #     skill_mape = nan
-                # else:
-                #     skill_mape = 1 - mape_lstm / mape_pers
+                    skill_nmae = 1 - nmae_lstm / nmae_pers
 
-                mase = (y_true - y_pred).abs().mean() / (y_true - y_pers).abs().mean()
+                mase = (y_true - y_pred).abs().mean() / (y_true - y_pers).abs().mean()            
                 
                 forecast = pd.concat((y_pred,y_true,y_pers),axis=1)
 
                 if plots:
-                    title = f'Skill {skill_mae:.3f}'
+                    title = f'Skill NMAE {skill_nmae:.3f}'
                     forecast.plot(title=title)
                     plt.show()
 
@@ -916,50 +904,34 @@ class RunTheJoules:
                                            forecast),axis=0)    
                 
                 times.append(t)
-                skills_mae.append(skill_mae)
-                maes_pers.append(mae_pers)
-                maes_lstm.append(mae_lstm)
-                #skills_mape.append(skill_mape)
-                #mapes_pers.append(mape_pers)
-                #mapes_lstm.append(mape_lstm)
+                skills_nmae.append(skill_nmae)
+                nmaes_pers.append(nmae_pers)
+                nmaes_lstm.append(nmae_lstm)
                 mases.append(mase)
                 
                 if t == tfinal:
                     print('Final test timestep reached:',tfinal)
                     break
 
-        # if self.cross_val is None:
-        #     all_forecasts.to_csv(f'{self.results_dir}/all_forecasts.csv')
-        # else:
-        #     all_forecasts.to_csv(f'{self.results_dir}/all_forecasts_crossval_{self.i_crossval}.csv')
-
         errors = pd.DataFrame({'timestamp_update':times,
-                      'skill_mae':skills_mae,
-                      'mae_pers':maes_pers,
-                      'mae_lstm':maes_lstm,
-                      #'skill_mape':skills_mape,
-                      #'mape_pers':mapes_pers,
-                      #'mape_lstm':mapes_lstm,
+                      'skill_nmae':skills_nmae,
+                      'nmae_pers':nmaes_pers,
+                      'nmae_lstm':nmaes_lstm,
                       'mase':mases,}
                       ).round(3)
         
-        
-        # print errors and test results
-        filename_allforecasts = f'{self.results_dir}test_forecasts.csv'
-        filename_errors = f'{self.results_dir}test_errors.csv'
-        if self.cross_val is not None: # if cross validaiton, change filenames a bit
-            print('Filenames before',filename_errors,filename_allforecasts)
-            filename_allforecasts = filename_allforecasts.split('.csv')[0] + f'_cval{self.i_crossval}.csv'
-            filename_errors = filename_errors.split('.csv')[0] + f'_cval{self.i_crossval}.csv'
-        errors.to_csv(filename_errors)
-        all_forecasts.to_csv(filename_allforecasts)
+        if (self.cross_val is None) or (self.cross_val is False):
+            filename_allforecasts = f'{self.results_dir}test_forecasts.csv'
+            filename_errors = f'{self.results_dir}test_errors.csv'
+            errors.to_csv(filename_errors)
+            all_forecasts.to_csv(filename_allforecasts)
                 
-        skills = np.array(skills_mae)
+        skills = np.array(skills_nmae)
         print('Percentage of forecasts with positive skill:',
               f'{100*len(skills[skills>0])/len(skills):.0f}%')
         print(f'Average skill: {100*skills.mean():.1f}%')
 
-        return skills.mean(), len(skills[skills>0])/len(skills)
+        return skills.mean(), len(skills[skills>0])/len(skills), all_forecasts, errors
     
     def random_search_warrant(self,
                               units1:list=None,
@@ -1018,7 +990,7 @@ class RunTheJoules:
                                             dropout=[d]*2,
                                             n_in=n,
                                             features=f)
-                mean_skill, positive_skills = self.banana_clipper()
+                mean_skill, positive_skills, _, _ = self.banana_clipper()
                 r = {'skMean':mean_skill,'skPos':positive_skills,'e':len(h.history['loss'])}
                 s.update(r)
                 s['f'] = len(s['f'])
@@ -1044,6 +1016,8 @@ class RunTheJoules:
         print(results)
         
     def cross_validation(self):
+        test_forecasts_cval = pd.DataFrame([])
+        errors_cval = pd.DataFrame([])
         for i_crossval in range(self.cross_val):
             self.i_crossval = i_crossval
             self.test_split = 1/self.cross_val * i_crossval
@@ -1066,7 +1040,17 @@ class RunTheJoules:
             
             history = self.run_them_fast()
 
-            self.banana_clipper(t0=self.test_t0,tfinal=self.test_end)        
+            _, _, test_forecasts, errors = self.banana_clipper(t0=self.test_t0,
+                                                         tfinal=self.test_end,)   
+            
+            test_forecasts.insert(0,'CrossVal',self.i_crossval)
+            errors.insert(0,'CrossVal',self.i_crossval)
+            
+            test_forecasts_cval = pd.concat((test_forecasts_cval,test_forecasts),axis=0,ignore_index=True)
+            errors_cval = pd.concat((errors_cval,errors),axis=0,ignore_index=True)
+            
+        test_forecasts_cval.to_csv(self.results_dir+'test_forecasts_cval.csv')
+        errors_cval.to_csv(self.results_dir+'test_errors_cval.csv')
        
        
 if __name__ == '__main__':
