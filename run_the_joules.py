@@ -151,10 +151,13 @@ class RunTheJoules:
         assert cfg.version == __version__
         self.config = cfg
         self.site = config_file.split('.')[0]
+        if (cfg.name == None) or (cfg.name == ''):
+            cfg.name = 'v'+str(__version__) + datetime.now().strftime("_%y%m%d_%H%M")
+        self.name = cfg.name.replace(' ','_').replace('/','_')
         self.persist_calc_days = cfg.persist_calc_days
         self.data_points_per_day = None
         self.persist_lag = None
-        self.results_dir = cfg.results_dir + self.site + '/' + cfg.results_subdir + '/'
+        self.results_dir = cfg.results_dir + self.site + '/' + self.name + '/'
         self.clean_dir = cfg.clean_dir
         self.filename = cfg.filename
         self.index_col = cfg.index_col
@@ -544,7 +547,7 @@ class RunTheJoules:
             tuple: (trained tf model, training history)
         """
         
-        print(f'\n\n\\\ Training model: u1-{units_layers[0]} u2-{units_layers[1]} d-{dropout} n-{n_in} fs-{n_features_x}\n\n')  
+        print(f'\n\n/// Training model: u1-{units_layers[0]} u2-{units_layers[1]} d-{dropout} n-{n_in} fs-{n_features_x}\n\n')  
         
         model = Sequential()
         
@@ -942,13 +945,16 @@ class RunTheJoules:
                       'mase':mases,}
                       ).round(3)
         
-        filename_allforecasts = f'{self.results_dir}/all_forecasts.csv'
-        filename_errors = f'{self.results_dir}/errors.csv'
-        if self.cross_val is None:
-            filename_allforecasts = filename_allforecasts.split('.csv')[0] + f'_crossval_{self.i_crossval}.csv'
-            filename_errors.split('.csv')[0] + f'_crossval_{self.i_crossval}.csv'
-        all_forecasts.to_csv(filename_allforecasts)
+        
+        # print errors and test results
+        filename_allforecasts = f'{self.results_dir}test_forecasts.csv'
+        filename_errors = f'{self.results_dir}test_errors.csv'
+        if self.cross_val is not None: # if cross validaiton, change filenames a bit
+            print('Filenames before',filename_errors,filename_allforecasts)
+            filename_allforecasts = filename_allforecasts.split('.csv')[0] + f'_cval{self.i_crossval}.csv'
+            filename_errors = filename_errors.split('.csv')[0] + f'_cval{self.i_crossval}.csv'
         errors.to_csv(filename_errors)
+        all_forecasts.to_csv(filename_allforecasts)
                 
         skills = np.array(skills_mae)
         print('Percentage of forecasts with positive skill:',
@@ -1044,12 +1050,14 @@ if __name__ == '__main__':
     
     j = RunTheJoules('jpl_ev.yaml')#sys.argv[1]+'.yaml') # pass site name as sys arg    
     
-    for i_crossval in range(j.cross_val)[:2]:
+    for i_crossval in range(j.cross_val):
+        #j.results_dir = j.results_dir +f'crossval_{i_crossval}/'
         j.i_crossval = i_crossval
         j.test_split = 1/j.cross_val * i_crossval
         j.i_test_begin = j.data_points_per_day*int(j.test_split*(len(j.df)/j.data_points_per_day))
         j.i_test_end = j.i_test_begin + j.data_points_per_day * int(1/j.cross_val * int(len(j.df) / j.data_points_per_day))
         j.test = j.df.iloc[j.i_test_begin:j.i_test_end,:]
+        
         idx_train = [x for x in j.df.index if x not in j.test.index]
         j.train = j.df.loc[idx_train]
         
@@ -1063,7 +1071,7 @@ if __name__ == '__main__':
         
         history = j.run_them_fast()
 
-        j.banana_clipper(t0=j.test_t0,tfinal=j.test_end)
+        j.banana_clipper(t0=j.test_t0,tfinal=j.test_end,limit=10)
     
     #joules.random_search_warrant()
 

@@ -2,8 +2,9 @@ version: 1.9
 
 # any configs here can be overwriteen by code
 
+name: crossval # version + YMD if empty
+
 # data
-results_subdir: cross_val
 filename: data/all_JPL_v5.csv
 index_col: Datetime
 data_col: Load
@@ -14,12 +15,12 @@ resample: 15min
 emd: True
 emd_export: False
 results_dir: ./results/
-clean_dir: False
+clean_dir: True
 
 # model
-units_layers: [3,0]
-dropout: [0,0]
-n_in: 96
+units_layers: [24,96]
+dropout: [0.1,0.1]
+n_in: 48
 n_out: 144
 batch_size: 256
 features: [Load, Persist1Workday]
@@ -28,19 +29,19 @@ features_list_numbers: [3,4]
 calendar_features: False
 
 # training
-epochs: 3
+epochs: 150
 patience: 20
 plots: #'hx'
 verbose: 1
 loss: mse
 test_split: 0.05    # fraction of data remaining for testing
 valid_split: 0.2    # of testing data, fraction remaining for validation
+cross_val: 10       # int (k) or False
 
 # testing
 forecast_freq: 1h   # 1h or 1d
 test_plots: False
 test_output: False
-cross_val: 10    # int (k) or False
 
 # hyperparameter search
 units1: [4,8,12,24,48,96,128,256] # units 1
