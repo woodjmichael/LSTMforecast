@@ -1057,8 +1057,13 @@ if __name__ == '__main__':
     
     j = RunTheJoules(sys.argv[1]+'.yaml') # pass site name as sys arg    
     
-    j.cross_validation()
+    if j.cross_val_enable:
+        j.cross_validation()
+    else:
+        j.run_them_fast()
+        j.banana_clipper()
     
-    #joules.random_search_warrant()
+    if j.hpsearch_enable:
+        j.random_search_warrant()
 
-    #joules.analyze_hyperparam_search()
+    #j.analyze_hyperparam_search()

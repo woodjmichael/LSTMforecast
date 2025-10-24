@@ -2,7 +2,7 @@ version: 1.11
 
 # any configs here can be overwriteen by code
 
-name: crossval # version + YMD if empty
+name: v1.11_250416_hpsearch # version + YMD if empty
 
 # data
 filename: data/all_JPL_v5.csv
@@ -18,10 +18,10 @@ results_dir: ./results/
 clean_dir: True
 
 # model
-units_layers: [24,96]
-dropout: [0.1,0.1]
-n_in: 48
-n_out: 144
+units_layers: [256,256]
+dropout: [0,0]
+n_in: 96
+n_out: 96
 batch_size: 256
 features: [Load, Persist1Workday]
 features_list_name: IMF
@@ -36,7 +36,7 @@ verbose: 1
 loss: mse
 test_split: 0.05    # fraction of data remaining for testing
 valid_split: 0.2    # of testing data, fraction remaining for validation
-cross_val: 10       # int (k) or False
+cross_val:          # int number of cross validations (False/None to disable)
 
 # testing
 forecast_freq: 1h   # 1h or 1d
@@ -44,7 +44,7 @@ test_plots: False
 test_output: False
 
 # hyperparameter search
-# (if enabled)
+hpsearch_enable: True
 units1: [4,8,12,24,48,96,128,256] # units 1
 units2: [0,4,8,12,24,48,96,128,256] # units 2
 dropouts: [0, 0.1] #0,0.1] # dropout
